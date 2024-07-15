@@ -1,4 +1,4 @@
-# Rust Thunderstore Client
+# Thunderstore Client
 
 A library for interacting with the Thunderstore API.
 
