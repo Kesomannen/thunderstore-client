@@ -1,0 +1,26 @@
+[package]
+name = "thunderstore"
+version = "0.1.0"
+authors = ["Kesomannen"]
+description = "A library for interacting with the Thunderstore API"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Kesomannen/thunderstore-client"
+keywords = ["thunderstore", "api", "client"]
+categories = ["api-bindings"]
+readme = "README.md"
+edition = "2021"
+
+[dependencies]
+arc-bytes = "0.3.5"
+base64 = "0.22.1"
+bytes = "1.6.0"
+chrono = { version = "0.4.38", features = ["serde"] }
+futures-util = "0.3.30"
+reqwest = { version = "0.12.5", features = ["json"] }
+semver = { version = "1.0.23", features = ["serde"] }
+serde = { version = "1.0.203", features = ["derive"] }
+serde_json = "1.0.120"
+thiserror = "1.0.61"
+tokio = { version = "1.38.0", features = ["full"] }
+url = { version = "2.5.2", features = ["serde"] }
+uuid = { version = "1.9.1", features = ["serde"] }
