@@ -2,6 +2,8 @@
 
 A library for interacting with the Thunderstore API.
 
+See the [crate docs](https://docs.rs/thunderstore/latest/thunderstore) for more information.
+
 ## Example
 
 ```rs

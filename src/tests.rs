@@ -1,11 +1,12 @@
 use super::*;
+use futures_util::{pin_mut, TryStreamExt};
 
 #[test]
 fn version_id_new_works() {
     let id = VersionId::new("Kesomannen", "GaleModManager", "0.6.0");
     assert_eq!(id.namespace(), "Kesomannen");
     assert_eq!(id.name(), "GaleModManager");
-    assert_eq!(id.version(), "0.6.0"); 
+    assert_eq!(id.version(), "0.6.0");
 }
 
 #[test]
@@ -25,6 +26,23 @@ fn parse_version_id_works() {
 #[tokio::test]
 async fn get_package_index_works() -> Result<()> {
     Client::new().get_package_index().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn stream_packages_v1_works() -> Result<()> {
+    let client = Client::new();
+
+    let stream = client.stream_packages_v1("riskofrain2").await?;
+    pin_mut!(stream);
+
+    let mut count = 0;
+    while let Some(_) = stream.try_next().await? {
+        count += 1;
+    }
+
+    assert!(count > 0);
+
     Ok(())
 }
 

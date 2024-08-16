@@ -1,4 +1,7 @@
-use crate::{models::*, usermedia::PackageMetadata, Client, Error, IntoPackageId, IntoVersionId, ResponseExt, Result};
+use crate::{
+    models::*, usermedia::PackageMetadata, Client, Error, IntoPackageId, IntoVersionId,
+    ResponseExt, Result,
+};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use reqwest::Method;
 use std::{fmt::Display, path::Path};
@@ -28,36 +31,36 @@ impl Client {
     }
 
     /// Fetches information about a single package.
-    /// 
+    ///
     /// ## Example
-    /// 
+    ///
     /// ```no_run
     /// let client = thunderstore::Client::new();
-    /// 
+    ///
     /// let a = client.get_package(("Kesomannen", "GaleModManager")).await?;
     /// let b = client.get_package("Kesomannen-GaleModManager").await?;
-    /// 
+    ///
     /// assert_eq!(a, b);
     /// ```
-    pub async fn get_package(&self, id: impl IntoPackageId) -> Result<PackageExperimental> {
+    pub async fn get_package(&self, id: impl IntoPackageId) -> Result<Package> {
         let url = self.experimental_url(format_args!("package/{}", id.into_id()?.path()));
         let response = self.client.get(&url).send().await.handle()?.json().await?;
         Ok(response)
     }
 
     /// Fetches information about a specific version of a package.
-    /// 
+    ///
     /// ## Example
-    /// 
+    ///
     /// ```no_run
     /// let client = thunderstore::Client::new();
-    /// 
+    ///
     /// let a = client.get_version(("Kesomannen", "GaleModManager", "0.6.0")).await?;
     /// let b = client.get_version("Kesomannen-GaleModManager-0.6.0").await?;
-    /// 
+    ///
     /// assert_eq!(a, b);
     /// ```
-    pub async fn get_version(&self, id: impl IntoVersionId) -> Result<PackageVersionExperimental> {
+    pub async fn get_version(&self, id: impl IntoVersionId) -> Result<PackageVersion> {
         let url = self.experimental_url(format_args!("package/{}", id.into_id()?.path()));
         let response = self.client.get(&url).send().await.handle()?.json().await?;
         Ok(response)
@@ -68,10 +71,7 @@ impl Client {
     ///
     /// Note that a package may not have a changelog, in which case [`Error::NotFound`] is returned.
     pub async fn get_changelog(&self, id: impl IntoVersionId) -> Result<String> {
-        let url = self.experimental_url(format_args!(
-            "package/{}/changelog",
-            id.into_id()?.path()
-        ));
+        let url = self.experimental_url(format_args!("package/{}/changelog", id.into_id()?.path()));
         let response = self
             .client
             .get(&url)
@@ -87,8 +87,7 @@ impl Client {
     /// Fetches the readme for a specific version of a package.
     /// The readme is returned as a markdown string.
     pub async fn get_readme(&self, id: impl IntoVersionId) -> Result<String> {
-        let url =
-            self.experimental_url(format_args!("package/{}/readme", id.into_id()?.path()));
+        let url = self.experimental_url(format_args!("package/{}/readme", id.into_id()?.path()));
         let response = self
             .client
             .get(&url)

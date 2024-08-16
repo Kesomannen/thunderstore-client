@@ -5,7 +5,7 @@ use url::Url;
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]
-pub struct PackageListing {
+pub struct PackageV1 {
     pub categories: HashSet<String>,
     pub date_created: DateTime<Utc>,
     pub date_updated: DateTime<Utc>,
@@ -19,11 +19,11 @@ pub struct PackageListing {
     pub package_url: Url,
     pub rating_score: u32,
     pub uuid4: Uuid,
-    pub versions: Vec<PackageVersion>,
+    pub versions: Vec<PackageVersionV1>,
 }
 
-impl PackageListing {
-    pub fn latest(&self) -> &PackageVersion {
+impl PackageV1 {
+    pub fn latest(&self) -> &PackageVersionV1 {
         &self.versions[0]
     }
 
@@ -31,11 +31,11 @@ impl PackageListing {
         self.categories.contains("Modpacks")
     }
 
-    pub fn get_version(&self, uuid: &Uuid) -> Option<&PackageVersion> {
+    pub fn get_version(&self, uuid: &Uuid) -> Option<&PackageVersionV1> {
         self.versions.iter().find(|v| v.uuid4 == *uuid)
     }
 
-    pub fn get_version_with_num(&self, version: &semver::Version) -> Option<&PackageVersion> {
+    pub fn get_version_with_num(&self, version: &semver::Version) -> Option<&PackageVersionV1> {
         self.versions.iter().find(|v| v.version_number == *version)
     }
 
@@ -44,20 +44,20 @@ impl PackageListing {
     }
 }
 
-impl Hash for PackageListing {
+impl Hash for PackageV1 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.uuid4.hash(state);
     }
 }
 
-impl PartialEq for PackageListing {
+impl PartialEq for PackageV1 {
     fn eq(&self, other: &Self) -> bool {
         self.uuid4 == other.uuid4
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]
-pub struct PackageVersion {
+pub struct PackageVersionV1 {
     pub date_created: DateTime<Utc>,
     pub dependencies: Vec<String>,
     pub description: String,
@@ -73,13 +73,13 @@ pub struct PackageVersion {
     pub website_url: String,
 }
 
-impl PartialEq for PackageVersion {
+impl PartialEq for PackageVersionV1 {
     fn eq(&self, other: &Self) -> bool {
         self.uuid4 == other.uuid4
     }
 }
 
-impl Hash for PackageVersion {
+impl Hash for PackageVersionV1 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.uuid4.hash(state);
     }
@@ -164,7 +164,7 @@ pub struct CompletedPart {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PackageSubmissionResult {
-    pub package_version: PackageVersionExperimental,
+    pub package_version: PackageVersion,
     pub available_communities: Vec<AvailableCommunity>,
 }
 
@@ -226,7 +226,7 @@ pub struct PackageIndexEntry {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]
-pub struct PackageVersionExperimental {
+pub struct PackageVersion {
     pub namespace: String,
     pub name: String,
     pub version_number: semver::Version,
@@ -241,20 +241,20 @@ pub struct PackageVersionExperimental {
     pub is_active: bool,
 }
 
-impl PartialEq for PackageVersionExperimental {
+impl PartialEq for PackageVersion {
     fn eq(&self, other: &Self) -> bool {
         self.full_name == other.full_name
     }
 }
 
-impl Hash for PackageVersionExperimental {
+impl Hash for PackageVersion {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.full_name.hash(state);
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]
-pub struct PackageExperimental {
+pub struct Package {
     pub namespace: String,
     pub name: String,
     pub full_name: String,
@@ -266,17 +266,17 @@ pub struct PackageExperimental {
     pub is_pinned: bool,
     pub is_deprecated: bool,
     pub total_downloads: i32,
-    pub latest: PackageVersionExperimental,
+    pub latest: PackageVersion,
     pub community_listings: Vec<PackageListingExperimental>,
 }
 
-impl PartialEq for PackageExperimental {
+impl PartialEq for Package {
     fn eq(&self, other: &Self) -> bool {
         self.full_name == other.full_name
     }
 }
 
-impl Hash for PackageExperimental {
+impl Hash for Package {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.full_name.hash(state);
     }
