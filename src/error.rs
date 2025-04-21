@@ -1,5 +1,6 @@
 /// Represents an error that can occur when interacting with the API.
 #[derive(thiserror::Error, Debug)]
+#[non_exhaustive]
 pub enum Error {
     #[error("Reqwest error: {0}")]
     Reqwest(#[from] reqwest::Error),
@@ -19,13 +20,7 @@ pub enum Error {
     #[error("Invalid legacyprofile data")]
     InvalidProfileData,
 
-    #[error("No upload UUID returned from server")]
-    NoUploadUuidGiven,
-
-    #[error("An API token is required to perform this action")]
-    ApiTokenRequired,
-
-    #[error("API token is invalid")]
+    #[error("API token is missing or invalid")]
     ApiTokenInvalid,
 
     #[error("Requested resource was not found")]

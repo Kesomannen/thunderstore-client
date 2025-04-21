@@ -5,6 +5,7 @@ use url::Url;
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]
+#[non_exhaustive]
 pub struct PackageV1 {
     pub categories: HashSet<String>,
     pub date_created: DateTime<Utc>,
@@ -31,11 +32,11 @@ impl PackageV1 {
         self.categories.contains("Modpacks")
     }
 
-    pub fn get_version(&self, uuid: &Uuid) -> Option<&PackageVersionV1> {
+    pub fn version(&self, uuid: &Uuid) -> Option<&PackageVersionV1> {
         self.versions.iter().find(|v| v.uuid4 == *uuid)
     }
 
-    pub fn get_version_with_num(&self, version: &semver::Version) -> Option<&PackageVersionV1> {
+    pub fn version_with_num(&self, version: &semver::Version) -> Option<&PackageVersionV1> {
         self.versions.iter().find(|v| v.version_number == *version)
     }
 
@@ -57,6 +58,7 @@ impl PartialEq for PackageV1 {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]
+#[non_exhaustive]
 pub struct PackageVersionV1 {
     pub date_created: DateTime<Utc>,
     pub dependencies: Vec<String>,
@@ -86,11 +88,13 @@ impl Hash for PackageVersionV1 {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
 pub struct LegacyProfileCreateResponse {
     pub key: Uuid,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
 pub struct PackageManifest {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -104,23 +108,27 @@ pub struct PackageManifest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
 pub struct PackageInstaller {
     pub identifier: String,
 }
 
 #[derive(Serialize, Debug)]
+#[non_exhaustive]
 pub struct UserMediaInitiateUploadParams {
     pub filename: String,
     pub file_size_bytes: u64,
 }
 
 #[derive(Deserialize)]
+#[non_exhaustive]
 pub struct UserMediaInitiateUploadResponse {
     pub user_media: UserMedia,
     pub upload_urls: Vec<UploadPartUrl>,
 }
 
 #[derive(Deserialize)]
+#[non_exhaustive]
 pub struct UserMedia {
     pub uuid: Option<Uuid>,
     pub filename: String,
@@ -132,6 +140,7 @@ pub struct UserMedia {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum UserMediaStatus {
     Initial,
     UploadInitiated,
@@ -142,6 +151,7 @@ pub enum UserMediaStatus {
 }
 
 #[derive(Deserialize, Debug)]
+#[non_exhaustive]
 pub struct UploadPartUrl {
     pub part_number: u32,
     pub url: String,
@@ -150,11 +160,13 @@ pub struct UploadPartUrl {
 }
 
 #[derive(Serialize, Debug)]
+#[non_exhaustive]
 pub struct UserMediaFinishUploadParams {
     pub parts: Vec<CompletedPart>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[non_exhaustive]
 pub struct CompletedPart {
     #[serde(rename = "ETag")]
     pub tag: String,
@@ -163,12 +175,14 @@ pub struct CompletedPart {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[non_exhaustive]
 pub struct PackageSubmissionResult {
     pub package_version: PackageVersion,
     pub available_communities: Vec<AvailableCommunity>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[non_exhaustive]
 pub struct AvailableCommunity {
     pub community: Community,
     pub categories: PackageCategory,
@@ -176,6 +190,7 @@ pub struct AvailableCommunity {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[non_exhaustive]
 pub struct Community {
     pub identifier: String,
     pub name: String,
@@ -185,37 +200,44 @@ pub struct Community {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[non_exhaustive]
 pub struct PackageCategory {
     pub name: String,
     pub slug: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[non_exhaustive]
 pub struct PackageVersionMetrics {
     pub downloads: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[non_exhaustive]
 pub struct PackageMetrics {
     pub downloads: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[non_exhaustive]
 pub struct RenderMarkdownParams {
     pub markdown: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[non_exhaustive]
 pub struct RenderMarkdownResponse {
     pub html: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[non_exhaustive]
 pub struct MarkdownResponse {
     pub markdown: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
 pub struct PackageIndexEntry {
     pub namespace: String,
     pub name: String,
@@ -226,6 +248,7 @@ pub struct PackageIndexEntry {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]
+#[non_exhaustive]
 pub struct PackageVersion {
     pub namespace: String,
     pub name: String,
@@ -254,6 +277,7 @@ impl Hash for PackageVersion {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]
+#[non_exhaustive]
 pub struct Package {
     pub namespace: String,
     pub name: String,
@@ -283,6 +307,7 @@ impl Hash for Package {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct PackageListingExperimental {
     pub has_nsfw_content: bool,
     pub categories: HashSet<String>,
@@ -292,6 +317,7 @@ pub struct PackageListingExperimental {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum ReviewStatus {
     Unreviewed,
     Approved,

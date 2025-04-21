@@ -1,4 +1,4 @@
-use crate::{models::*, Client, IntoPackageId, IntoVersionId, ResponseExt, Result};
+use crate::{models::*, Client, IntoPackageId, IntoVersionId, Result};
 use async_stream::try_stream;
 use futures_core::Stream;
 use std::fmt::Display;
@@ -10,14 +10,13 @@ impl Client {
     pub async fn get_metrics(
         &self,
         community: impl Display,
-        package: impl IntoPackageId,
+        package: impl IntoPackageId<'_>,
     ) -> Result<PackageMetrics> {
         let url = self.v1_url(
             community,
-            format_args!("package-metrics/{}", package.into_id()?.path()),
+            format_args!("/package-metrics/{}", package.into_id()?.path()),
         );
-        let response = self.client.get(&url).send().await.handle()?.json().await?;
-        Ok(response)
+        self.get_json(url).await
     }
 
     /// Fetches the download count for a specific version of a package.
@@ -26,14 +25,13 @@ impl Client {
     pub async fn get_downloads(
         &self,
         community: impl Display,
-        version: impl IntoVersionId,
+        version: impl IntoVersionId<'_>,
     ) -> Result<u64> {
         let url = self.v1_url(
             community,
-            format_args!("package-metrics/{}", version.into_id()?.path()),
+            format_args!("/package-metrics/{}", version.into_id()?.path()),
         );
-        let response: PackageVersionMetrics =
-            self.client.get(&url).send().await.handle()?.json().await?;
+        let response: PackageVersionMetrics = self.get_json(url).await?;
         Ok(response.downloads)
     }
 
@@ -44,13 +42,12 @@ impl Client {
     /// Note that on popular communities like Lethal Company (`lethal-company`),
     /// this will fetch up to 170 MB of data.
     pub async fn list_packages_v1(&self, community: impl Display) -> Result<Vec<PackageV1>> {
-        let url = self.v1_url(community, "package");
-        let response = self.client.get(&url).send().await.handle()?.json().await?;
-        Ok(response)
+        let url = self.v1_url(community, "/package");
+        self.get_json(url).await
     }
 
-    fn v1_url(&self, community: impl Display, tail: impl Display) -> String {
-        format!("{}/c/{}/api/v1/{}/", self.base_url, community, tail)
+    fn v1_url(&self, community: impl Display, path: impl Display) -> String {
+        format!("{}/c/{}/api/v1{}", self.base_url, community, path)
     }
 }
 
@@ -86,8 +83,8 @@ impl Client {
         &self,
         community: impl Display,
     ) -> Result<impl Stream<Item = Result<PackageV1>>> {
-        let url = self.v1_url(community, "package");
-        let mut response = self.client.get(&url).send().await.handle()?;
+        let url = self.v1_url(community, "/package");
+        let mut response = self.get(url).await?;
 
         Ok(try_stream! {
             let mut buffer = Vec::new();

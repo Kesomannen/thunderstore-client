@@ -1,4 +1,4 @@
-use crate::{models::*, Client, Error, ResponseExt, Result};
+use crate::{models::*, util, Client, Result};
 use bytes::Bytes;
 use futures_util::future::join_all;
 use reqwest::Method;
@@ -8,25 +8,25 @@ use tokio::fs;
 use uuid::Uuid;
 
 impl Client {
-    /// Initiates a new package upload. 
-    /// 
+    /// Initiates a new package upload.
+    ///
     /// - `name` corresponds to the name of the package and may only contain alphanumeric
     /// characters and underscores.
-    /// 
+    ///
     /// - `size` must be the package's size in bytes.
     ///
     /// This method returns a [`UserMediaInitiateUploadResponse`] which contains a unique UUID for the upload,
     /// which is used to identify the package throughout the upload process.
-    /// 
+    ///
     /// The response also contains a list of URLs to which the file should be uploaded, using HTTP PUT.
     /// Each upload URL responds with an ETag header, which should be used to finalize the upload.
     ///
     /// Alternatively, you can use [`Client::publish`] to upload and submit a package in one go.
-    /// 
+    ///
     /// This method requires a valid API token on the client.
-    /// 
+    ///
     /// ## Example
-    /// 
+    ///
     /// ```no_run
     /// use thunderstore::{Client, models::{UploadPartUrl, CompletedPart}};
     ///
@@ -45,10 +45,10 @@ impl Client {
     ///
     ///    // The response will return an ETag header, which is needed to complete the upload
     ///    parts.push(CompletedPart { tag: todo!(), part_number });
-    /// 
+    ///
     ///    // These requests should preferably be done concurrently to decrease upload time
     /// }
-    /// 
+    ///
     /// client.finish_upload(uuid, parts).await?;
     /// ```
     pub async fn initiate_upload(
@@ -56,16 +56,16 @@ impl Client {
         name: impl Into<String>,
         size: u64,
     ) -> Result<UserMediaInitiateUploadResponse> {
-        let url = self.usermedia_url("initiate-upload");
+        let url = self.usermedia_url("/initiate-upload");
         let response = self
-            .auth_request(Method::POST, url)?
-            .json(&UserMediaInitiateUploadParams {
-                filename: name.into(),
-                file_size_bytes: size,
-            })
-            .send()
-            .await
-            .handle()?
+            .post_json(
+                url,
+                &UserMediaInitiateUploadParams {
+                    filename: name.into(),
+                    file_size_bytes: size,
+                },
+            )
+            .await?
             .json()
             .await?;
 
@@ -76,13 +76,11 @@ impl Client {
     ///
     /// This method requires a valid API token on the client.
     pub async fn abort_upload(&self, uuid: Uuid) -> Result<UserMedia> {
-        let url = self.usermedia_url(format_args!("{}/abort-upload", uuid));
+        let url = self.usermedia_url(format_args!("/{}/abort-upload", uuid));
 
         let response = self
-            .auth_request(Method::POST, url)?
-            .send()
-            .await
-            .handle()?
+            .request(Method::POST, url, None, None)
+            .await?
             .json()
             .await?;
 
@@ -97,14 +95,11 @@ impl Client {
     ///
     /// This method requires a valid API token on the client.
     pub async fn finish_upload(&self, uuid: Uuid, parts: Vec<CompletedPart>) -> Result<UserMedia> {
-        let url = self.usermedia_url(format_args!("{}/finish-upload", uuid));
+        let url = self.usermedia_url(format_args!("/{}/finish-upload", uuid));
 
         let response = self
-            .auth_request(Method::POST, url)?
-            .json(&UserMediaFinishUploadParams { parts })
-            .send()
-            .await
-            .handle()?
+            .post_json(url, &UserMediaFinishUploadParams { parts })
+            .await?
             .json()
             .await?;
 
@@ -112,7 +107,7 @@ impl Client {
     }
 
     /// Uploads and submits a package.
-    /// 
+    ///
     /// - `name` may only contain alphanumeric characters and underscores.
     ///
     /// This method requires a valid API token on the client.
@@ -125,7 +120,10 @@ impl Client {
         let bytes = Bytes::from(data);
         let response = self.initiate_upload(name, bytes.len() as u64).await?;
 
-        let uuid = response.user_media.uuid.ok_or(Error::NoUploadUuidGiven)?;
+        let uuid = response
+            .user_media
+            .uuid
+            .expect("no upload uuid in server response");
 
         let chunks = response
             .upload_urls
@@ -161,8 +159,8 @@ impl Client {
         self.publish(file_name, data, metadata).await
     }
 
-    pub(crate) fn usermedia_url(&self, tail: impl Display) -> String {
-        format!("{}/api/experimental/usermedia/{}/", self.base_url, tail)
+    pub(crate) fn usermedia_url(&self, path: impl Display) -> String {
+        format!("{}/api/experimental/usermedia{}", self.base_url, path)
     }
 }
 
@@ -173,12 +171,13 @@ async fn upload_chunk(
 ) -> Result<CompletedPart> {
     let slice = bytes.slice(part.offset as usize..(part.offset + part.length) as usize);
 
-    let response = client.put(&part.url).body(slice).send().await?.error_for_status()?;
+    let res = client.put(&part.url).body(slice).send().await;
+    let res = util::map_reqwest_response(res)?;
 
-    let tag = response
+    let tag = res
         .headers()
         .get("ETag")
-        .expect("no ETag in response")
+        .expect("no ETag in server response")
         .to_str()
         .expect("ETag is not valid ascii")
         .to_owned();

@@ -1,9 +1,8 @@
 use crate::{
-    models::*, usermedia::PackageMetadata, Client, Error, IntoPackageId, IntoVersionId,
-    ResponseExt, Result,
+    models::*, usermedia::PackageMetadata, util, Client, Error, IntoPackageId, IntoVersionId,
+    Result,
 };
 use base64::{prelude::BASE64_STANDARD, Engine};
-use reqwest::Method;
 use std::{fmt::Display, path::Path};
 use tokio::fs;
 use uuid::Uuid;
@@ -11,25 +10,6 @@ use uuid::Uuid;
 const PROFILE_DATA_PREFIX: &str = "#r2modman\n";
 
 impl Client {
-    /// Fetches a list of all packages on Thunderstore.
-    pub async fn get_package_index(&self) -> Result<Vec<PackageIndexEntry>> {
-        let url = self.experimental_url("package-index");
-
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await?
-            .error_for_status()?
-            .text()
-            .await?;
-
-        response
-            .lines()
-            .map(|line| serde_json::from_str(line).map_err(Error::Json))
-            .collect()
-    }
-
     /// Fetches information about a single package.
     ///
     /// ## Example
@@ -42,10 +22,9 @@ impl Client {
     ///
     /// assert_eq!(a, b);
     /// ```
-    pub async fn get_package(&self, id: impl IntoPackageId) -> Result<Package> {
-        let url = self.experimental_url(format_args!("package/{}", id.into_id()?.path()));
-        let response = self.client.get(&url).send().await.handle()?.json().await?;
-        Ok(response)
+    pub async fn get_package(&self, id: impl IntoPackageId<'_>) -> Result<Package> {
+        let url = self.experimental_url(format_args!("/package/{}", id.into_id()?.path()));
+        self.get_json(url).await
     }
 
     /// Fetches information about a specific version of a package.
@@ -60,56 +39,40 @@ impl Client {
     ///
     /// assert_eq!(a, b);
     /// ```
-    pub async fn get_version(&self, id: impl IntoVersionId) -> Result<PackageVersion> {
-        let url = self.experimental_url(format_args!("package/{}", id.into_id()?.path()));
-        let response = self.client.get(&url).send().await.handle()?.json().await?;
-        Ok(response)
+    pub async fn get_version(&self, id: impl IntoVersionId<'_>) -> Result<PackageVersion> {
+        let url = self.experimental_url(format_args!("/package/{}", id.into_id()?.path()));
+        self.get_json(url).await
     }
 
     /// Fetches the changelog for a specific version of a package.
     /// The changelog is returned as a markdown string.
     ///
     /// Note that a package may not have a changelog, in which case [`Error::NotFound`] is returned.
-    pub async fn get_changelog(&self, id: impl IntoVersionId) -> Result<String> {
-        let url = self.experimental_url(format_args!("package/{}/changelog", id.into_id()?.path()));
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .handle()?
-            .json::<MarkdownResponse>()
-            .await?;
-
+    pub async fn get_changelog(&self, id: impl IntoVersionId<'_>) -> Result<String> {
+        let url =
+            self.experimental_url(format_args!("/package/{}/changelog", id.into_id()?.path()));
+        let response: MarkdownResponse = self.get_json(url).await?;
         Ok(response.markdown)
     }
 
     /// Fetches the readme for a specific version of a package.
     /// The readme is returned as a markdown string.
-    pub async fn get_readme(&self, id: impl IntoVersionId) -> Result<String> {
-        let url = self.experimental_url(format_args!("package/{}/readme", id.into_id()?.path()));
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .handle()?
-            .json::<MarkdownResponse>()
-            .await?;
-
+    pub async fn get_readme(&self, id: impl IntoVersionId<'_>) -> Result<String> {
+        let url = self.experimental_url(format_args!("/package/{}/readme", id.into_id()?.path()));
+        let response: MarkdownResponse = self.get_json(url).await?;
         Ok(response.markdown)
     }
 
     /// Renders a markdown string to HTML.
     pub async fn render_markdown(&self, markdown: impl ToString) -> Result<String> {
-        let url = self.experimental_url("frontend/render-markdown");
-        let response = self
-            .client
-            .post(&url)
-            .json(&RenderMarkdownParams {
-                markdown: markdown.to_string(),
-            })
-            .send()
+        let url = self.experimental_url("/frontend/render-markdown");
+        let response: RenderMarkdownResponse = self
+            .post_json(
+                url,
+                &RenderMarkdownParams {
+                    markdown: markdown.to_string(),
+                },
+            )
             .await?
             .json::<RenderMarkdownResponse>()
             .await?;
@@ -128,16 +91,12 @@ impl Client {
         let mut base64 = String::from(PROFILE_DATA_PREFIX);
         base64.push_str(&BASE64_STANDARD.encode(data));
 
-        let url = self.experimental_url("legacyprofile/create");
+        let url = self.experimental_url("/legacyprofile/create");
+        let headers = util::header_map([("Content-Type", "application/octet-stream")]);
 
         let response = self
-            .client
-            .post(url)
-            .header("Content-Type", "application/octet-stream")
-            .body(base64)
-            .send()
+            .post(url, base64, Some(headers))
             .await?
-            .error_for_status()?
             .json::<LegacyProfileCreateResponse>()
             .await?;
 
@@ -150,9 +109,9 @@ impl Client {
     /// any additional configuration files. However, any arbitrary data is allowed
     /// by Thunderstore.
     pub async fn get_profile(&self, key: Uuid) -> Result<Vec<u8>> {
-        let url = self.experimental_url(format_args!("legacyprofile/get/{}", key));
+        let url = self.experimental_url(format_args!("/legacyprofile/get/{}", key));
 
-        let response = self.client.get(url).send().await.handle()?.text().await?;
+        let response = self.get(url).await?.text().await?;
 
         match response.strip_prefix(PROFILE_DATA_PREFIX) {
             Some(data) => BASE64_STANDARD.decode(data).map_err(Error::Base64),
@@ -182,22 +141,89 @@ impl Client {
         upload_uuid: Uuid,
         mut metadata: PackageMetadata,
     ) -> Result<PackageSubmissionResult> {
-        let url = self.experimental_url("submission/submit");
+        let url = self.experimental_url("/submission/submit");
         metadata.upload_uuid = Some(upload_uuid);
 
-        let response = self
-            .auth_request(Method::POST, url)?
-            .json(&metadata)
-            .send()
-            .await
-            .handle()?
-            .json()
-            .await?;
-
+        let response = self.post_json(url, &metadata).await?.json().await?;
         Ok(response)
     }
 
-    pub(crate) fn experimental_url(&self, tail: impl Display) -> String {
-        format!("{}/api/experimental/{}/", self.base_url, tail)
+    pub(crate) fn experimental_url(&self, path: impl Display) -> String {
+        format!("{}/api/experimental{}", self.base_url, path)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures_util::{pin_mut, TryStreamExt};
+
+    #[tokio::test]
+    async fn stream_packages_v1() -> Result<()> {
+        let client = Client::new();
+
+        let stream = client.stream_packages_v1("muck").await?;
+        pin_mut!(stream);
+
+        let mut count = 0;
+        while let Some(_) = stream.try_next().await? {
+            count += 1;
+        }
+
+        assert!(count > 0);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn get_package() -> Result<()> {
+        let client = Client::new();
+
+        client.get_package(("Kesomannen", "GaleModManager")).await?;
+        client.get_package("Kesomannen-GaleModManager").await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn get_package_fails_when_not_found() -> Result<()> {
+        let client = Client::new();
+
+        match client.get_package(("Kesomannen", "GaleModManager2")).await {
+            Err(Error::NotFound) => (),
+            other => panic!("expected NotFound error, got {:?}", other),
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn get_version() -> Result<()> {
+        let client = Client::new();
+
+        client
+            .get_version(("Kesomannen", "GaleModManager", "0.6.0"))
+            .await?;
+        client
+            .get_version("Kesomannen-GaleModManager-0.6.0")
+            .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn get_changelog() -> Result<()> {
+        Client::new()
+            .get_changelog(("Kesomannen", "GaleModManager", "0.1.0"))
+            .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn get_readme() -> Result<()> {
+        Client::new()
+            .get_readme(("Kesomannen", "GaleModManager", "0.1.0"))
+            .await?;
+        Ok(())
     }
 }
