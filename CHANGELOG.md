@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- Fixed POST endpoints
+
 ## 0.3.0
 
 - Changed a lot

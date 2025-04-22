@@ -115,7 +115,7 @@ impl Client {
     }
 
     pub(crate) fn url(&self, path: impl Display) -> String {
-        format!("{}/api{}", self.base_url, path)
+        format!("{}/api{}/", self.base_url, path)
     }
 
     async fn download_raw(&self, version: impl IntoVersionIdent<'_>) -> Result<reqwest::Response> {

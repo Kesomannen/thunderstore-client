@@ -1247,7 +1247,7 @@ dependencies = [
 
 [[package]]
 name = "thunderstore"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "arc-bytes",
  "async-stream",
