@@ -1,10 +1,10 @@
 use crate::{models::*, util, Client, Result};
+
 use bytes::Bytes;
 use futures_util::future::join_all;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Display, path::Path};
-use tokio::fs;
+use std::{collections::HashMap, fmt::Display};
 use uuid::Uuid;
 
 impl Client {
@@ -23,7 +23,7 @@ impl Client {
     ///
     /// Alternatively, you can use [`Client::publish`] to upload and submit a package in one go.
     ///
-    /// This method requires a valid API token on the client.
+    /// This method requires an API token on the client.
     ///
     /// ## Example
     ///
@@ -61,8 +61,8 @@ impl Client {
             .post_json(
                 url,
                 &UserMediaInitiateUploadParams {
-                    filename: name.into(),
-                    file_size_bytes: size,
+                    name: name.into(),
+                    size,
                 },
             )
             .await?
@@ -74,9 +74,9 @@ impl Client {
 
     /// Aborts an ongoing upload.
     ///
-    /// This method requires a valid API token on the client.
+    /// This method requires an API token on the client.
     pub async fn abort_upload(&self, uuid: Uuid) -> Result<UserMedia> {
-        let url = self.usermedia_url(format_args!("/{}/abort-upload", uuid));
+        let url = self.usermedia_url(format_args!("/{uuid}/abort-upload"));
 
         let response = self
             .request(Method::POST, url, None, None)
@@ -93,7 +93,7 @@ impl Client {
     /// Note that this will not publish the package, only finish the upload process.
     /// To submit the package, use the [`Client::submit_submission`] method as well.
     ///
-    /// This method requires a valid API token on the client.
+    /// This method requires an API token on the client.
     pub async fn finish_upload(&self, uuid: Uuid, parts: Vec<CompletedPart>) -> Result<UserMedia> {
         let url = self.usermedia_url(format_args!("/{}/finish-upload", uuid));
 
@@ -110,53 +110,30 @@ impl Client {
     ///
     /// - `name` may only contain alphanumeric characters and underscores.
     ///
-    /// This method requires a valid API token on the client.
+    /// This method requires an API token on the client.
     pub async fn publish(
         &self,
         name: impl Into<String>,
-        data: Vec<u8>,
+        data: impl Into<Bytes>,
         metadata: PackageMetadata,
     ) -> Result<PackageSubmissionResult> {
-        let bytes = Bytes::from(data);
+        let bytes: Bytes = data.into();
         let response = self.initiate_upload(name, bytes.len() as u64).await?;
 
-        let uuid = response
-            .user_media
-            .uuid
-            .expect("no upload uuid in server response");
+        let uuid = response.user_media.uuid;
 
-        let chunks = response
+        let tasks = response
             .upload_urls
             .into_iter()
-            .map(|part| tokio::spawn(upload_chunk(self.client.clone(), part, bytes.clone())));
+            .map(|part| upload_chunk(self.client.clone(), part, bytes.clone()));
 
-        let parts = join_all(chunks)
+        let parts = join_all(tasks)
             .await
             .into_iter()
-            .flatten()
             .collect::<Result<Vec<_>>>()?;
 
         self.finish_upload(uuid, parts).await?;
         self.submit_package(uuid, metadata).await
-    }
-
-    /// Uploads and submits a package.
-    /// The name of the package is derived from the file name.
-    ///
-    /// This method requires a valid API token on the client.
-    pub async fn publish_file(
-        &self,
-        path: impl AsRef<Path>,
-        metadata: PackageMetadata,
-    ) -> Result<PackageSubmissionResult> {
-        let file_name = path
-            .as_ref()
-            .with_extension("")
-            .to_string_lossy()
-            .to_string();
-
-        let data = fs::read(path).await?;
-        self.publish(file_name, data, metadata).await
     }
 
     pub(crate) fn usermedia_url(&self, path: impl Display) -> String {
@@ -184,7 +161,7 @@ async fn upload_chunk(
 
     Ok(CompletedPart {
         tag,
-        part_number: part.part_number,
+        part_number: part.number,
     })
 }
 
@@ -208,10 +185,10 @@ pub struct PackageMetadata {
     author: String,
     #[serde(rename = "categories")]
     global_categories: Vec<String>,
-    communities: Vec<String>,
-    has_nsfw_content: bool,
     #[serde(rename = "community_categories")]
     categories: HashMap<String, Vec<String>>,
+    communities: Vec<String>,
+    has_nsfw_content: bool,
     pub(crate) upload_uuid: Option<Uuid>,
 }
 

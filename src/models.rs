@@ -1,3 +1,5 @@
+use crate::{PackageIdent, VersionIdent};
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, hash::Hash};
@@ -7,19 +9,22 @@ use uuid::Uuid;
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]
 #[non_exhaustive]
 pub struct PackageV1 {
+    #[serde(rename = "uuid4")]
+    pub uuid: Uuid,
+    #[serde(rename = "owner")]
+    pub namespace: String,
+    pub name: String,
+    #[serde(rename = "full_name")]
+    pub ident: PackageIdent,
     pub categories: HashSet<String>,
     pub date_created: DateTime<Utc>,
     pub date_updated: DateTime<Utc>,
     pub donation_link: Option<Url>,
-    pub full_name: String,
     pub has_nsfw_content: bool,
     pub is_deprecated: bool,
     pub is_pinned: bool,
-    pub name: String,
-    pub owner: String,
     pub package_url: Url,
     pub rating_score: u32,
-    pub uuid4: Uuid,
     pub versions: Vec<PackageVersionV1>,
 }
 
@@ -32,12 +37,12 @@ impl PackageV1 {
         self.categories.contains("Modpacks")
     }
 
-    pub fn version(&self, uuid: &Uuid) -> Option<&PackageVersionV1> {
-        self.versions.iter().find(|v| v.uuid4 == *uuid)
+    pub fn version_by_id(&self, uuid: &Uuid) -> Option<&PackageVersionV1> {
+        self.versions.iter().find(|v| v.uuid == *uuid)
     }
 
-    pub fn version_with_num(&self, version: &semver::Version) -> Option<&PackageVersionV1> {
-        self.versions.iter().find(|v| v.version_number == *version)
+    pub fn version_by_name(&self, version: &semver::Version) -> Option<&PackageVersionV1> {
+        self.versions.iter().find(|v| v.number == *version)
     }
 
     pub fn total_downloads(&self) -> u32 {
@@ -47,43 +52,46 @@ impl PackageV1 {
 
 impl Hash for PackageV1 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.uuid4.hash(state);
+        self.uuid.hash(state);
     }
 }
 
 impl PartialEq for PackageV1 {
     fn eq(&self, other: &Self) -> bool {
-        self.uuid4 == other.uuid4
+        self.uuid == other.uuid
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]
 #[non_exhaustive]
 pub struct PackageVersionV1 {
+    #[serde(rename = "uuid4")]
+    pub uuid: Uuid,
+    pub name: String,
+    #[serde(rename = "version_number")]
+    pub number: semver::Version,
+    #[serde(rename = "full_name")]
+    pub ident: VersionIdent,
     pub date_created: DateTime<Utc>,
-    pub dependencies: Vec<String>,
+    pub dependencies: Vec<VersionIdent>,
     pub description: String,
     pub download_url: Url,
     pub downloads: u32,
     pub file_size: u64,
-    pub full_name: String,
-    pub icon: String,
+    pub icon: Url,
     pub is_active: bool,
-    pub name: String,
-    pub uuid4: Uuid,
-    pub version_number: semver::Version,
     pub website_url: String,
 }
 
 impl PartialEq for PackageVersionV1 {
     fn eq(&self, other: &Self) -> bool {
-        self.uuid4 == other.uuid4
+        self.uuid == other.uuid
     }
 }
 
 impl Hash for PackageVersionV1 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.uuid4.hash(state);
+        self.uuid.hash(state);
     }
 }
 
@@ -95,50 +103,34 @@ pub struct LegacyProfileCreateResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[non_exhaustive]
-pub struct PackageManifest {
-    pub name: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub author: Option<String>,
-    pub description: String,
-    pub version_number: semver::Version,
-    pub dependencies: Vec<String>,
-    pub website_url: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub installers: Option<Vec<PackageInstaller>>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[non_exhaustive]
-pub struct PackageInstaller {
-    pub identifier: String,
-}
-
-#[derive(Serialize, Debug)]
-#[non_exhaustive]
 pub struct UserMediaInitiateUploadParams {
-    pub filename: String,
-    pub file_size_bytes: u64,
+    #[serde(rename = "filename")]
+    pub name: String,
+    #[serde(rename = "file_size_bytes")]
+    pub size: u64,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]
 pub struct UserMediaInitiateUploadResponse {
     pub user_media: UserMedia,
     pub upload_urls: Vec<UploadPartUrl>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]
 pub struct UserMedia {
-    pub uuid: Option<Uuid>,
-    pub filename: String,
+    pub uuid: Uuid,
+    #[serde(rename = "filename")]
+    pub name: String,
     pub size: u64,
-    pub datetime_created: DateTime<Utc>,
+    #[serde(rename = "datetime_created")]
+    pub date_created: DateTime<Utc>,
     pub expiry: DateTime<Utc>,
     pub status: UserMediaStatus,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum UserMediaStatus {
@@ -150,23 +142,23 @@ pub enum UserMediaStatus {
     UploadAborted,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]
 pub struct UploadPartUrl {
-    pub part_number: u32,
+    #[serde(rename = "part_number")]
+    pub number: u32,
     pub url: String,
     pub offset: u64,
     pub length: u64,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]
 pub struct UserMediaFinishUploadParams {
     pub parts: Vec<CompletedPart>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[non_exhaustive]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CompletedPart {
     #[serde(rename = "ETag")]
     pub tag: String,
@@ -174,69 +166,59 @@ pub struct CompletedPart {
     pub part_number: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]
 pub struct PackageSubmissionResult {
     pub package_version: PackageVersion,
     pub available_communities: Vec<AvailableCommunity>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]
 pub struct AvailableCommunity {
     pub community: Community,
-    pub categories: PackageCategory,
+    pub categories: CommunityCategory,
     pub url: Url,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]
-pub struct Community {
-    pub identifier: String,
-    pub name: String,
-    pub discord_url: Option<Url>,
-    pub wiki_url: Option<Url>,
-    pub require_package_listing_approval: bool,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[non_exhaustive]
-pub struct PackageCategory {
+pub struct CommunityCategory {
     pub name: String,
     pub slug: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]
 pub struct PackageVersionMetrics {
     pub downloads: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]
 pub struct PackageMetrics {
     pub downloads: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]
 pub struct RenderMarkdownParams {
     pub markdown: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]
 pub struct RenderMarkdownResponse {
     pub html: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]
 pub struct MarkdownResponse {
     pub markdown: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]
 pub struct PackageIndexEntry {
     pub namespace: String,
@@ -250,13 +232,11 @@ pub struct PackageIndexEntry {
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]
 #[non_exhaustive]
 pub struct PackageVersion {
-    pub namespace: String,
-    pub name: String,
-    pub version_number: semver::Version,
-    pub full_name: String,
+    #[serde(rename = "full_name")]
+    pub ident: VersionIdent,
     pub description: String,
     pub icon: Url,
-    pub dependencies: Vec<String>,
+    pub dependencies: Vec<VersionIdent>,
     pub download_url: Url,
     pub downloads: u32,
     pub date_created: DateTime<Utc>,
@@ -266,23 +246,21 @@ pub struct PackageVersion {
 
 impl PartialEq for PackageVersion {
     fn eq(&self, other: &Self) -> bool {
-        self.full_name == other.full_name
+        self.ident == other.ident
     }
 }
 
 impl Hash for PackageVersion {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.full_name.hash(state);
+        self.ident.hash(state);
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]
 #[non_exhaustive]
 pub struct Package {
-    pub namespace: String,
-    pub name: String,
-    pub full_name: String,
-    pub owner: String,
+    #[serde(rename = "full_name")]
+    pub ident: PackageIdent,
     pub package_url: Url,
     pub date_created: DateTime<Utc>,
     pub date_updated: DateTime<Utc>,
@@ -296,13 +274,13 @@ pub struct Package {
 
 impl PartialEq for Package {
     fn eq(&self, other: &Self) -> bool {
-        self.full_name == other.full_name
+        self.ident == other.ident
     }
 }
 
 impl Hash for Package {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.full_name.hash(state);
+        self.ident.hash(state);
     }
 }
 
@@ -315,11 +293,119 @@ pub struct PackageListingExperimental {
     pub review_status: ReviewStatus,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum ReviewStatus {
     Unreviewed,
     Approved,
     Rejected,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
+pub struct PaginatedResponse<T> {
+    pub pagination: Pagination,
+    pub results: Vec<T>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
+pub struct Pagination {
+    pub next_link: Option<Url>,
+    pub previous_link: Option<Url>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
+pub struct Community {
+    #[serde(rename = "identifier")]
+    pub ident: String,
+    pub name: String,
+    pub discord_url: Option<Url>,
+    pub wiki_url: Option<Url>,
+    pub require_package_listing_approval: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
+pub struct IconValidatorParams {
+    pub icon_data: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
+pub struct ManifestV1ValidatorParams {
+    pub namespace: String,
+    pub manifest_data: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
+pub struct ReadmeValidatorParams {
+    pub readme_data: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
+pub struct ValidatorResponse {
+    pub success: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
+pub struct WikisResponse {
+    pub results: Vec<ListedWiki>,
+    pub cursor: DateTime<Utc>,
+    pub has_more: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
+pub struct ListedWiki {
+    pub namespace: String,
+    pub name: String,
+    pub wiki: Wiki,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
+pub struct Wiki {
+    pub id: String,
+    pub title: String,
+    pub slug: String,
+    #[serde(rename = "datetime_created")]
+    pub created_at: DateTime<Utc>,
+    #[serde(rename = "datetime_updated")]
+    pub updated_at: DateTime<Utc>,
+    pub pages: Vec<WikiPage>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
+pub struct WikiPage {
+    pub id: String,
+    pub title: String,
+    pub slug: String,
+    #[serde(rename = "datetime_created")]
+    pub created_at: DateTime<Utc>,
+    #[serde(rename = "datetime_updated")]
+    pub updated_at: DateTime<Utc>,
+    #[serde(default, rename = "markdown_content")]
+    pub content: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
+pub struct WikiPageUpsert {
+    pub id: Option<String>,
+    pub title: String,
+    #[serde(rename = "markdown_content")]
+    pub content: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
+pub struct WikiPageDelete {
+    pub id: String,
 }

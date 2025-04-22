@@ -30,7 +30,7 @@
 
 mod client;
 mod error;
-mod id;
+mod ident;
 mod routes;
 mod util;
 
@@ -38,5 +38,13 @@ pub mod models;
 
 pub use client::{Client, ClientBuilder};
 pub use error::{Error, Result};
-pub use id::{IntoPackageId, IntoVersionId, PackageId, VersionId};
+pub use ident::{IntoPackageIdent, IntoVersionIdent, PackageIdent, VersionIdent};
 pub use routes::*;
+
+pub mod prelude {
+    pub use crate::{
+        models::{Package, PackageV1, PackageVersion, PackageVersionV1},
+        Client, ClientBuilder, Error, IntoPackageIdent, IntoVersionIdent, PackageIdent, Result,
+        VersionIdent,
+    };
+}

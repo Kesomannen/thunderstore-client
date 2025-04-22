@@ -1,5 +1,10 @@
-use crate::{util, IntoVersionId, Result};
+use std::fmt::Display;
+
+use crate::{util, IntoVersionIdent, Result};
+
 use bytes::Bytes;
+use futures_core::Stream;
+use futures_util::StreamExt;
 use reqwest::Method;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -32,10 +37,6 @@ impl Client {
 
     pub fn set_base_url(&mut self, base_url: impl Into<String>) {
         self.base_url = base_url.into();
-    }
-
-    pub fn set_default_base_url(&mut self) {
-        self.base_url = DEFAULT_BASE_URL.to_string();
     }
 
     pub fn token(&self) -> Option<&str> {
@@ -108,17 +109,36 @@ impl Client {
             .await
     }
 
-    /// Downloads a package from Thunderstore.
-    /// The result is a ZIP archive containing the contents of the package.
-    pub async fn download(&self, version: impl IntoVersionId<'_>) -> Result<Bytes> {
+    pub(crate) fn url(&self, path: impl Display) -> String {
+        format!("{}/api{}", self.base_url, path)
+    }
+
+    async fn download_raw(&self, version: impl IntoVersionIdent<'_>) -> Result<reqwest::Response> {
         let url = format!(
             "{}/package/download/{}",
             self.base_url,
             version.into_id()?.path()
         );
-        let response = self.get(url).await?.bytes().await?;
+        self.get(url).await
+    }
 
-        Ok(response)
+    pub async fn stream_download(
+        &self,
+        version: impl IntoVersionIdent<'_>,
+    ) -> Result<impl Stream<Item = Result<Bytes>>> {
+        let stream = self
+            .download_raw(version)
+            .await?
+            .bytes_stream()
+            .map(|item| item.map_err(|err| err.into()));
+        Ok(stream)
+    }
+
+    /// Downloads a package from Thunderstore.
+    /// The result is a ZIP archive containing the contents of the package.
+    pub async fn download(&self, version: impl IntoVersionIdent<'_>) -> Result<Bytes> {
+        let res = self.download_raw(version).await?.bytes().await?;
+        Ok(res)
     }
 }
 
@@ -126,7 +146,7 @@ impl Default for Client {
     fn default() -> Self {
         Self {
             base_url: DEFAULT_BASE_URL.to_string(),
-            client: reqwest::Client::new(),
+            client: reqwest::Client::default(),
             token: None,
         }
     }

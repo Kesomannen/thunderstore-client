@@ -1,4 +1,5 @@
-use crate::{models::*, Client, IntoPackageId, IntoVersionId, Result};
+use crate::{models::*, Client, IntoPackageIdent, IntoVersionIdent, Result};
+
 use async_stream::try_stream;
 use futures_core::Stream;
 use std::fmt::Display;
@@ -10,7 +11,7 @@ impl Client {
     pub async fn get_metrics(
         &self,
         community: impl Display,
-        package: impl IntoPackageId<'_>,
+        package: impl IntoPackageIdent<'_>,
     ) -> Result<PackageMetrics> {
         let url = self.v1_url(
             community,
@@ -25,7 +26,7 @@ impl Client {
     pub async fn get_downloads(
         &self,
         community: impl Display,
-        version: impl IntoVersionId<'_>,
+        version: impl IntoVersionIdent<'_>,
     ) -> Result<u64> {
         let url = self.v1_url(
             community,
@@ -81,9 +82,9 @@ impl Client {
     /// ```
     pub async fn stream_packages_v1(
         &self,
-        community: impl Display,
+        community: impl AsRef<str>,
     ) -> Result<impl Stream<Item = Result<PackageV1>>> {
-        let url = self.v1_url(community, "/package");
+        let url = self.v1_url(community.as_ref(), "/package");
         let mut response = self.get(url).await?;
 
         Ok(try_stream! {
@@ -116,5 +117,28 @@ impl Client {
                 }
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures_util::{pin_mut, TryStreamExt};
+
+    #[tokio::test]
+    async fn stream_packages_v1() -> Result<()> {
+        let client = Client::new();
+
+        let stream = client.stream_packages_v1("muck").await?;
+        pin_mut!(stream);
+
+        let mut count = 0;
+        while let Some(_) = stream.try_next().await? {
+            count += 1;
+        }
+
+        assert!(count > 0);
+
+        Ok(())
     }
 }
