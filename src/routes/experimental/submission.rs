@@ -4,7 +4,7 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::{models::*, prelude::*};
+use crate::{models::*, prelude::*, Result};
 
 use super::usermedia::PackageMetadata;
 
@@ -27,32 +27,35 @@ impl Client {
         Ok(response)
     }
 
+    /// Validates a package icon.
     pub async fn validate_icon(&self, data: impl AsRef<[u8]>) -> Result<bool> {
         let icon_data = BASE64_STANDARD.encode(data);
         self.validate("/icon", IconValidatorParams { icon_data })
             .await
     }
 
+    /// Validates a package manifest (v1) as if uploaded in given namespace.
     pub async fn validate_manifest_v1(
         &self,
-        namespace: impl ToString,
-        content: impl ToString,
+        namespace: impl Into<String>,
+        content: impl Into<String>,
     ) -> Result<bool> {
         self.validate(
             "/manifest-v1",
             ManifestV1ValidatorParams {
-                namespace: namespace.to_string(),
-                manifest_data: content.to_string(),
+                namespace: namespace.into(),
+                manifest_data: content.into(),
             },
         )
         .await
     }
 
-    pub async fn validate_readme(&self, content: impl ToString) -> Result<bool> {
+    /// Validates a package README.
+    pub async fn validate_readme(&self, content: impl Into<String>) -> Result<bool> {
         self.validate(
             "/readme",
             ReadmeValidatorParams {
-                readme_data: content.to_string(),
+                readme_data: content.into(),
             },
         )
         .await

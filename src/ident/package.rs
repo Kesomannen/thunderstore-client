@@ -16,15 +16,17 @@ use super::VersionIdent;
 ///
 /// This struct can be created in a number of ways:
 /// ```
-/// use thunderstore::PackageId;
+/// use thunderstore::PackageIdent;
 ///
-/// let a = PackageId::new("BepInEx", "BepInExPack");
-/// let b: PackageId = "BepInEx-BepInExPack".parse().unwrap();
-/// let c: PackageId = ("BepInEx", "BepInExPack").into();
+/// let a = PackageIdent::new("BepInEx", "BepInExPack");
+/// let b: PackageIdent = "BepInEx-BepInExPack".parse().unwrap();
+/// let c: PackageIdent = ("BepInEx", "BepInExPack").into();
 /// ```
 ///
-/// Most methods on [`crate::Client`] accept any type that implements [`IntoPackageIdent`],
+/// Methods on [`crate::Client`] accept any type that implements [`IntoPackageIdent`],
 /// which allows any of the above methods to be used interchangeably.
+///
+/// The underlying string is either an owned [`String`] or a string literal (`&'static str`).
 #[derive(Eq, Clone, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct PackageIdent {
@@ -33,6 +35,18 @@ pub struct PackageIdent {
 }
 
 impl PackageIdent {
+    /// Creates a new [`PackageIdent`].
+    ///
+    /// This copies the arguments into a newly allocated `String`, delimited by `-`.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use thunderstore::PackageIdent;
+    ///
+    /// let ident = PackageIdent::new("BepInEx", "BepInExPack");
+    /// assert_eq!(ident.into_string(), "BepInEx-BepInExPack");
+    /// ```
     pub fn new(namespace: impl AsRef<str>, name: impl AsRef<str>) -> Self {
         let namespace = namespace.as_ref();
 
@@ -42,11 +56,31 @@ impl PackageIdent {
         Self { repr, name_start }
     }
 
+    /// The namespace/owner of the package.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use thunderstore::PackageIdent;
+    ///
+    /// let ident: PackageIdent = "BepInEx-BepInExPack".parse().unwrap();
+    /// assert_eq!(ident.namespace(), "BepInEx");
+    /// ```
     #[inline]
     pub fn namespace(&self) -> &str {
         &self.repr[..self.name_start - 1]
     }
 
+    /// The name of the package.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use thunderstore::PackageIdent;
+    ///
+    /// let ident: PackageIdent = "BepInEx-BepInExPack".parse().unwrap();
+    /// assert_eq!(ident.name(), "BepInExPack");
+    /// ```
     #[inline]
     pub fn name(&self) -> &str {
         &self.repr[self.name_start..]
@@ -54,23 +88,29 @@ impl PackageIdent {
 
     /// Returns an object that, when formatted with `{}`, will produce the URL path for this package.
     ///
-    /// ## Example
+    /// ## Examples
     ///
     /// ```
-    /// let id = thunderstore::PackageId::new("BepInEx", "BepInExPack");
-    /// assert_eq!(id.path().to_string(), "BepInEx/BepInExPack");
+    /// use thunderstore::PackageIdent;
+    ///
+    /// let ident = PackageIdent::new("BepInEx", "BepInExPack");
+    /// assert_eq!(ident.path().to_string(), "BepInEx/BepInExPack");
     /// ```
     #[inline]
     pub fn path(&self) -> impl Display + '_ {
-        PackageIdPath::new(self)
+        PackageIdentPath::new(self)
     }
 
+    /// Unwraps the underlying string, formatted as `namespace-name`.
     #[inline]
     pub fn into_cow(self) -> Cow<'static, str> {
         self.repr
     }
 
-    /// Consumes the [`PackageId`] and returns the underlying string, formatted as `namespace-name`.
+    /// Unwraps the underlying string, formatted as `namespace-name`.
+    ///
+    /// If the string is a `'static str`, it is converted to an owned `String`. If you don't want
+    /// that, see [`PackageIdent::into_cow`].
     #[inline]
     pub fn into_string(self) -> String {
         self.repr.into_owned()
@@ -82,8 +122,9 @@ impl PackageIdent {
         &self.repr
     }
 
-    pub fn with_version(&self, version: impl Display) -> VersionIdent {
-        let repr = Cow::Owned(format!("{}-{}", self.repr, version));
+    /// Creates a copy of the identifier with a specific version.
+    pub fn with_version(&self, version: impl AsRef<str>) -> VersionIdent {
+        let repr = Cow::Owned(format!("{}-{}", self.repr, version.as_ref()));
         let version_start = self.repr.len() + 1;
 
         VersionIdent {
@@ -153,8 +194,7 @@ impl TryFrom<Cow<'static, str>> for PackageIdent {
 
     fn try_from(value: Cow<'static, str>) -> Result<Self> {
         let mut indices = value.match_indices('-').map(|(i, _)| i);
-
-        let name_start = indices.next().ok_or(Error::InvalidPackageId)? + 1;
+        let name_start = indices.next().ok_or(Error::InvalidIdent)? + 1;
 
         Ok(Self {
             repr: value,
@@ -197,17 +237,17 @@ where
     }
 }
 
-struct PackageIdPath<'a> {
+struct PackageIdentPath<'a> {
     id: &'a PackageIdent,
 }
 
-impl<'a> PackageIdPath<'a> {
+impl<'a> PackageIdentPath<'a> {
     pub fn new(id: &'a PackageIdent) -> Self {
         Self { id }
     }
 }
 
-impl<'a> Display for PackageIdPath<'a> {
+impl Display for PackageIdentPath<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}/{}", self.id.namespace(), self.id.name(),)
     }
@@ -219,6 +259,12 @@ impl From<&VersionIdent> for PackageIdent {
     }
 }
 
+/// A fallible conversion to [`Cow<'a, PackageIdent>`].
+///
+/// This is used in methods on [`crate::Client`] to add flexibility in the argument types.
+///
+/// This usually clones the input, unless you pass it a reference an already constructed [`PackageIdent`],
+/// in which case no copying will be performed.
 pub trait IntoPackageIdent<'a> {
     fn into_id(self) -> Result<Cow<'a, PackageIdent>>;
 }

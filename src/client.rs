@@ -31,22 +31,27 @@ impl Client {
         ClientBuilder::new()
     }
 
+    /// The base URL to use for requests. Defaults to `https://thunderstore.io`.
     pub fn base_url(&self) -> &str {
         &self.base_url
     }
 
+    /// Sets the base URL to use for requests.
     pub fn set_base_url(&mut self, base_url: impl Into<String>) {
         self.base_url = base_url.into();
     }
 
+    /// The API token to use for restricted endpoints.
     pub fn token(&self) -> Option<&str> {
         self.token.as_deref()
     }
 
+    /// Clears the API token to use for restricted endpoints.
     pub fn clear_token(&mut self) {
         self.token = None;
     }
 
+    /// Sets the API token to use for restricted endpoints.
     pub fn set_token(&mut self, token: impl Into<String>) {
         self.token = Some(token.into());
     }
@@ -122,6 +127,8 @@ impl Client {
         self.get(url).await
     }
 
+    /// Downloads a package and streams it.
+    /// The result, when aggregated, is a ZIP archive containing the contents of the package.
     pub async fn stream_download(
         &self,
         version: impl IntoVersionIdent<'_>,
@@ -134,7 +141,7 @@ impl Client {
         Ok(stream)
     }
 
-    /// Downloads a package from Thunderstore.
+    /// Downloads a package and returns it as a single [`Bytes`].
     /// The result is a ZIP archive containing the contents of the package.
     pub async fn download(&self, version: impl IntoVersionIdent<'_>) -> Result<Bytes> {
         let res = self.download_raw(version).await?.bytes().await?;

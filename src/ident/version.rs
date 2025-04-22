@@ -12,21 +12,21 @@ use crate::{Error, Result};
 
 use super::package::PackageIdent;
 
-/// A unique identifier for a package version, formatted as `namespace-name-version`
-/// and also known as a dependency string.
+/// A unique identifier for a package version, formatted as `namespace-name-version`.
 ///
-/// This struct is flexible and can be created in a number of ways:
+/// This struct can be created in a number of ways:
 /// ```
 /// use thunderstore::VersionIdent;
 ///
 /// let a = VersionIdent::new("BepInEx", "BepInExPack", "5.4.2100");
-/// let b: VersionIdent = "BepInEx-BepInExPack-5.4.2100".parse().unwrap();
-/// let c: VersionIdent = ("BepInEx", "BepInExPack", "5.4.2100").into();
-/// let d = ("BepInEx", "BepInExPack", &semver::Version::new(5, 4, 2100)).into();
+/// let b: VersionIdent = "BepInEx-BepInExPack".parse().unwrap();
+/// let c: VersionIdent = ("BepInEx", "BepInExPack").into();
 /// ```
 ///
-/// Most methods on [`crate::Client`] accept any type that implements [`IntoVersionIdent`],
+/// Methods on [`crate::Client`] accept any type that implements [`IntoVersionIdent`],
 /// which allows any of the above methods to be used interchangeably.
+///
+/// The underlying string is either an owned [`String`] or a string literal (`&'static str`).
 #[derive(Eq, Clone, Deserialize, Serialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct VersionIdent {
@@ -36,6 +36,18 @@ pub struct VersionIdent {
 }
 
 impl VersionIdent {
+    /// Creates a new [`VersionIdent`].
+    ///
+    /// This copies the arguments into a newly allocated `String`, delimited by `-`.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use thunderstore::VersionIdent;
+    ///
+    /// let ident = VersionIdent::new("BepInEx", "BepInExPack", "5.4.2100");
+    /// assert_eq!(ident.into_string(), "BepInEx-BepInExPack-5.4.2100");
+    /// ```
     pub fn new(
         namespace: impl AsRef<str>,
         name: impl AsRef<str>,
@@ -55,21 +67,65 @@ impl VersionIdent {
         }
     }
 
+    /// The namespace/owner of the package.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use thunderstore::VersionIdent;
+    ///
+    /// let ident: VersionIdent = "BepInEx-BepInExPack-5.4.2100".parse().unwrap();
+    /// assert_eq!(ident.namespace(), "BepInEx");
+    /// ```
     #[inline]
     pub fn namespace(&self) -> &str {
         &self.repr[..self.name_start - 1]
     }
 
+    /// The name of the package.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use thunderstore::VersionIdent;
+    ///
+    /// let ident: VersionIdent = "BepInEx-BepInExPack-5.4.2100".parse().unwrap();
+    /// assert_eq!(ident.name(), "BepInExPack");
+    /// ```
     #[inline]
     pub fn name(&self) -> &str {
         &self.repr[self.name_start..self.version_start - 1]
     }
 
+    /// The version number of the package.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use thunderstore::VersionIdent;
+    ///
+    /// let ident: VersionIdent = "BepInEx-BepInExPack-5.4.2100".parse().unwrap();
+    /// assert_eq!(ident.version(), "5.4.2100");
+    /// ```
     #[inline]
     pub fn version(&self) -> &str {
         &self.repr[self.version_start..]
     }
 
+    /// The version number of the package as a [`semver::Version`]
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use thunderstore::VersionIdent;
+    ///
+    /// let ident: VersionIdent = "BepInEx-BepInExPack-5.4.2100".parse().unwrap();
+    ///
+    /// let version = ident.parsed_version();
+    /// assert_eq!(version.major, 5);
+    /// assert_eq!(version.minor, 4);
+    /// assert_eq!(version.patch, 2100);
+    /// ```
     pub fn parsed_version(&self) -> semver::Version {
         self.version()
             .parse()
@@ -81,7 +137,9 @@ impl VersionIdent {
     /// ## Example
     ///
     /// ```
-    /// let id = thunderstore::VersionId::new("BepInEx", "BepInExPack", "5.4.2100");
+    /// use thunderstore::VersionIdent;
+    ///
+    /// let id = VersionIdent::new("BepInEx", "BepInExPack", "5.4.2100");
     /// assert_eq!(id.path().to_string(), "BepInEx/BepInExPack/5.4.2100");
     /// ```
     #[inline]
@@ -89,12 +147,16 @@ impl VersionIdent {
         VersionIdPath::new(self)
     }
 
+    /// Unwraps the underlying string, formatted as `namespace-name-version`.
     #[inline]
     pub fn into_cow(self) -> Cow<'static, str> {
         self.repr
     }
 
-    /// Consumes the [`VersionId`] and returns the underlying string, formatted as `namespace-name-version`.
+    /// Unwraps the underlying string, formatted as `namespace-name-version`.
+    ///
+    /// If the string is a `'static str`, it is converted to an owned `String`. If you don't want
+    /// that, see [`VersionIdent::into_cow`].
     #[inline]
     pub fn into_string(self) -> String {
         self.repr.into_owned()
@@ -106,6 +168,7 @@ impl VersionIdent {
         &self.repr
     }
 
+    /// Returns a copy of the identifier with the version removed.
     pub fn package_id(&self) -> PackageIdent {
         let repr = Cow::Owned(self.repr[..self.version_start - 1].to_string());
 
@@ -176,8 +239,8 @@ impl TryFrom<Cow<'static, str>> for VersionIdent {
     fn try_from(value: Cow<'static, str>) -> Result<Self> {
         let mut indices = value.match_indices('-').map(|(i, _)| i);
 
-        let name_start = indices.next().ok_or(Error::InvalidPackageId)? + 1;
-        let version_start = indices.next().ok_or(Error::InvalidPackageId)? + 1;
+        let name_start = indices.next().ok_or(Error::InvalidIdent)? + 1;
+        let version_start = indices.next().ok_or(Error::InvalidIdent)? + 1;
 
         Ok(Self {
             repr: value,
@@ -232,7 +295,7 @@ impl<'a> VersionIdPath<'a> {
     }
 }
 
-impl<'a> Display for VersionIdPath<'a> {
+impl Display for VersionIdPath<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -244,6 +307,12 @@ impl<'a> Display for VersionIdPath<'a> {
     }
 }
 
+/// A fallible conversion to [`Cow<'a, VersionIdent>`].
+///
+/// This is used in methods on [`crate::Client`] to add flexibility in the argument types.
+///
+/// This usually clones the input, unless you pass it a reference an already constructed [`VersionIdent`],
+/// in which case no copying will be performed.
 pub trait IntoVersionIdent<'a> {
     fn into_id(self) -> Result<Cow<'a, VersionIdent>>;
 }
@@ -257,7 +326,7 @@ where
     }
 }
 
-impl<'a> IntoVersionIdent<'a> for String {
+impl IntoVersionIdent<'_> for String {
     fn into_id(self) -> Result<Cow<'static, VersionIdent>> {
         self.try_into().map(Cow::Owned)
     }

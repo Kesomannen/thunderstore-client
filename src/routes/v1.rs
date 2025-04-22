@@ -10,7 +10,7 @@ impl Client {
     /// `community` is the slug of the community, which is usually in kebab-case.
     pub async fn get_metrics(
         &self,
-        community: impl Display,
+        community: impl AsRef<str>,
         package: impl IntoPackageIdent<'_>,
     ) -> Result<PackageMetrics> {
         let url = self.v1_url(
@@ -25,7 +25,7 @@ impl Client {
     /// `community` is the slug of the community, which is usually in kebab-case.
     pub async fn get_downloads(
         &self,
-        community: impl Display,
+        community: impl AsRef<str>,
         version: impl IntoVersionIdent<'_>,
     ) -> Result<u64> {
         let url = self.v1_url(
@@ -42,13 +42,13 @@ impl Client {
     ///
     /// Note that on popular communities like Lethal Company (`lethal-company`),
     /// this will fetch up to 170 MB of data.
-    pub async fn list_packages_v1(&self, community: impl Display) -> Result<Vec<PackageV1>> {
+    pub async fn list_packages_v1(&self, community: impl AsRef<str>) -> Result<Vec<PackageV1>> {
         let url = self.v1_url(community, "/package");
         self.get_json(url).await
     }
 
-    fn v1_url(&self, community: impl Display, path: impl Display) -> String {
-        format!("{}/c/{}/api/v1{}", self.base_url, community, path)
+    fn v1_url(&self, community: impl AsRef<str>, path: impl Display) -> String {
+        format!("{}/c/{}/api/v1{}", self.base_url, community.as_ref(), path)
     }
 }
 

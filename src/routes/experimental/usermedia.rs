@@ -10,10 +10,10 @@ use uuid::Uuid;
 impl Client {
     /// Initiates a new package upload.
     ///
-    /// - `name` corresponds to the name of the package and may only contain alphanumeric
-    /// characters and underscores.
+    /// - `name` is the name of the package and may only contain alphanumeric
+    ///    characters and underscores.
     ///
-    /// - `size` must be the package's size in bytes.
+    /// - `size` must be the size of the package in bytes.
     ///
     /// This method returns a [`UserMediaInitiateUploadResponse`] which contains a unique UUID for the upload,
     /// which is used to identify the package throughout the upload process.
@@ -36,20 +36,19 @@ impl Client {
     /// let size = std::fs::metadata(path)?.len();
     /// let response = client.initiate_upload("MyCoolMod", size).await?;
     ///
-    /// let uuid = response.user_media.uuid.unwrap();
     /// let parts = Vec::new();
     ///
-    /// for UploadPartUrl { url, part_number, offset, length } in response.upload_urls {
+    /// for UploadPartUrl { url, number, offset, length } in response.upload_urls {
     ///    // Read `length` bytes from `offset` in the file
-    ///    // and make a PUT request to `url` with the data
+    ///    // and make a PUT request to `url` with the data.
     ///
-    ///    // The response will return an ETag header, which is needed to complete the upload
-    ///    parts.push(CompletedPart { tag: todo!(), part_number });
+    ///    // The response will return an ETag header, which is needed to complete the upload.
+    ///    parts.push(CompletedPart { tag: todo!(), number });
     ///
-    ///    // These requests should preferably be done concurrently to decrease upload time
+    ///    // These requests should preferably be done concurrently to decrease upload time.
     /// }
     ///
-    /// client.finish_upload(uuid, parts).await?;
+    /// client.finish_upload(response.user_media.uuid, parts).await?;
     /// ```
     pub async fn initiate_upload(
         &self,
@@ -87,11 +86,11 @@ impl Client {
         Ok(response)
     }
 
-    /// Finalizes an upload to Thunderstore. Requires the UUID of the upload and a list
+    /// Finalizes an upload. Requires the UUID of the upload and a list
     /// of [`CompletedPart`] objects, which contain the ETag of each part of the upload.
     ///
     /// Note that this will not publish the package, only finish the upload process.
-    /// To submit the package, use the [`Client::submit_submission`] method as well.
+    /// To submit the package, use the [`Client::submit_package`] method as well.
     ///
     /// This method requires an API token on the client.
     pub async fn finish_upload(&self, uuid: Uuid, parts: Vec<CompletedPart>) -> Result<UserMedia> {
@@ -161,7 +160,7 @@ async fn upload_chunk(
 
     Ok(CompletedPart {
         tag,
-        part_number: part.number,
+        number: part.number,
     })
 }
 

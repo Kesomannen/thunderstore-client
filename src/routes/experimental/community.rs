@@ -1,8 +1,12 @@
 use url::Url;
 
-use crate::{models::*, prelude::*};
+use crate::{models::*, prelude::*, Result};
 
 impl Client {
+    /// Fetches a page of communities.
+    ///
+    /// Returns a [`CursorState`] which is used to navigate between pages by passing the
+    /// fields in the `cursor` parameter.
     pub async fn get_communities(
         &self,
         cursor: Option<impl AsRef<str>>,
@@ -15,6 +19,10 @@ impl Client {
         Ok((response.pagination.into(), response.results))
     }
 
+    /// Fetches a page of categories from the given community.
+    ///
+    /// Returns a [`CursorState`] which is used to navigate between pages by passing the
+    /// fields in the `cursor` parameter.
     pub async fn get_categories(
         &self,
         community: impl AsRef<str>,
@@ -32,6 +40,7 @@ impl Client {
     }
 }
 
+/// Returned by paginated endpoints and used to navigate between pages.
 #[derive(Debug, Clone)]
 pub struct CursorState {
     pub next: Option<String>,

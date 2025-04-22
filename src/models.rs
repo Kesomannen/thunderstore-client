@@ -163,7 +163,7 @@ pub struct CompletedPart {
     #[serde(rename = "ETag")]
     pub tag: String,
     #[serde(rename = "PartNumber")]
-    pub part_number: u32,
+    pub number: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -10,6 +10,8 @@
 //! # Examples
 //!
 //! ```no_run
+//! use
+//!
 //! #[tokio::main]
 //! async fn main() -> thunderstore::Result<()> {
 //!     let client = thunderstore::Client::builder()
@@ -17,7 +19,7 @@
 //!         .build()?;
 //!
 //!     let package = client.get_package(("Kesomannen", "GaleModManager")).await?;
-//!     client.download_to_dir(&package.latest, r"C:\Users\bobbo\Downloads").await?;
+//!     let _bytes = client.download(package.latest.ident).await?;
 //!
 //!     client.publish_file(
 //!         "CoolMod.zip",
@@ -44,7 +46,6 @@ pub use routes::*;
 pub mod prelude {
     pub use crate::{
         models::{Package, PackageV1, PackageVersion, PackageVersionV1},
-        Client, ClientBuilder, Error, IntoPackageIdent, IntoVersionIdent, PackageIdent, Result,
-        VersionIdent,
+        Client, ClientBuilder, IntoPackageIdent, IntoVersionIdent, PackageIdent, VersionIdent,
     };
 }

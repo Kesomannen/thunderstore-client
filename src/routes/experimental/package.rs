@@ -1,7 +1,7 @@
-use crate::{models::*, prelude::*};
+use crate::{models::*, prelude::*, Result};
 
 impl Client {
-    /// Fetches information about a single package.
+    /// Fetches information about a package.
     ///
     /// ## Example
     ///
@@ -13,10 +13,10 @@ impl Client {
     ///
     /// assert_eq!(a, b);
     /// ```
-    pub async fn get_package(&self, id: impl IntoPackageIdent<'_>) -> Result<Package> {
+    pub async fn get_package(&self, ident: impl IntoPackageIdent<'_>) -> Result<Package> {
         let url = self.url(format_args!(
             "/experimental/package/{}",
-            id.into_id()?.path()
+            ident.into_id()?.path()
         ));
         self.get_json(url).await
     }
@@ -33,20 +33,20 @@ impl Client {
     ///
     /// assert_eq!(a, b);
     /// ```
-    pub async fn get_version(&self, id: impl IntoVersionIdent<'_>) -> Result<PackageVersion> {
+    pub async fn get_version(&self, ident: impl IntoVersionIdent<'_>) -> Result<PackageVersion> {
         let url = self.url(format_args!(
             "/experimental/package/{}",
-            id.into_id()?.path()
+            ident.into_id()?.path()
         ));
         self.get_json(url).await
     }
 
     /// Fetches the readme for a specific version of a package.
     /// The readme is returned as a markdown string.
-    pub async fn get_readme(&self, id: impl IntoVersionIdent<'_>) -> Result<String> {
+    pub async fn get_readme(&self, ident: impl IntoVersionIdent<'_>) -> Result<String> {
         let url = self.url(format_args!(
             "/experimental/package/{}/readme",
-            id.into_id()?.path()
+            ident.into_id()?.path()
         ));
         let response: MarkdownResponse = self.get_json(url).await?;
         Ok(response.markdown)
@@ -56,10 +56,10 @@ impl Client {
     /// The changelog is returned as a markdown string.
     ///
     /// Note that a package may not have a changelog, in which case [`Error::NotFound`] is returned.
-    pub async fn get_changelog(&self, id: impl IntoVersionIdent<'_>) -> Result<String> {
+    pub async fn get_changelog(&self, ident: impl IntoVersionIdent<'_>) -> Result<String> {
         let url = self.url(format_args!(
             "/experimental/package/{}/changelog",
-            id.into_id()?.path()
+            ident.into_id()?.path()
         ));
         let response: MarkdownResponse = self.get_json(url).await?;
         Ok(response.markdown)
@@ -68,8 +68,9 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
+    use crate::Error;
+
     use super::*;
-    use futures_util::{pin_mut, TryStreamExt};
 
     #[tokio::test]
     async fn get_package() -> Result<()> {
