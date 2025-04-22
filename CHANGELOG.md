@@ -1,10 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- Changed a lot
+
 ## 0.2.0
 
 ## Added
 
-- `Client.stream_packages_v1` method to asynchronously stream packages
+- `Client::stream_packages_v1` method to asynchronously stream packages
 
 ## Changed
 
