@@ -10,8 +10,6 @@
 //! # Examples
 //!
 //! ```no_run
-//! use
-//!
 //! #[tokio::main]
 //! async fn main() -> thunderstore::Result<()> {
 //!     let client = thunderstore::Client::builder()

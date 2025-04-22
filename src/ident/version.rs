@@ -19,8 +19,8 @@ use super::package::PackageIdent;
 /// use thunderstore::VersionIdent;
 ///
 /// let a = VersionIdent::new("BepInEx", "BepInExPack", "5.4.2100");
-/// let b: VersionIdent = "BepInEx-BepInExPack".parse().unwrap();
-/// let c: VersionIdent = ("BepInEx", "BepInExPack").into();
+/// let b: VersionIdent = "BepInEx-BepInExPack-5.4.2100".parse().unwrap();
+/// let c: VersionIdent = ("BepInEx", "BepInExPack", "5.4.2100").into();
 /// ```
 ///
 /// Methods on [`crate::Client`] accept any type that implements [`IntoVersionIdent`],
