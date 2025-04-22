@@ -8,10 +8,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    models::{Package, PackageVersion},
-    Error, Result,
-};
+use crate::{Error, Result};
 
 use super::package::PackageIdent;
 

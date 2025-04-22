@@ -120,6 +120,7 @@ mod tests {
         Client::new()
             .get_readme(("Kesomannen", "GaleModManager", "0.1.0"))
             .await?;
+
         Ok(())
     }
 }
