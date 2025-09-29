@@ -224,7 +224,7 @@ pub struct PackageIndexEntry {
     pub namespace: String,
     pub name: String,
     pub version_number: semver::Version,
-    pub file_format: String,
+    pub file_format: Option<String>,
     pub file_size: u64,
     pub dependencies: Vec<String>,
 }
