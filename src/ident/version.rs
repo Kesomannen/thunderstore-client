@@ -170,12 +170,19 @@ impl VersionIdent {
 
     /// Returns a copy of the identifier with the version removed.
     pub fn package_id(&self) -> PackageIdent {
-        let repr = Cow::Owned(self.repr[..self.version_start - 1].to_string());
+        let repr = match &self.repr {
+            Cow::Borrowed(str) => Cow::Borrowed(&str[..self.version_start - 1]),
+            Cow::Owned(str) => Cow::Owned(str[..self.version_start - 1].to_string()),
+        };
 
         PackageIdent {
             repr,
             name_start: self.name_start,
         }
+    }
+
+    pub fn eq_package(&self, other: &PackageIdent) -> bool {
+        self.namespace() == other.namespace() && self.name() == other.name()
     }
 }
 

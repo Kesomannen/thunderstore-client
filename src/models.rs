@@ -226,7 +226,7 @@ pub struct PackageIndexEntry {
     pub version_number: semver::Version,
     pub file_format: Option<String>,
     pub file_size: u64,
-    pub dependencies: Vec<String>,
+    pub dependencies: Vec<VersionIdent>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]

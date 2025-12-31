@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use crate::{util, IntoVersionIdent, Result};
 
@@ -14,6 +14,7 @@ const DEFAULT_BASE_URL: &str = "https://thunderstore.io";
 ///
 /// The easiest way to create a client is to use the [`Client::new`] method.
 /// If you need more control over the client's configuration, use the [`Client::builder`] method instead.
+#[derive(Clone)]
 pub struct Client {
     pub(crate) base_url: String,
     pub(crate) client: reqwest::Client,
@@ -146,6 +147,23 @@ impl Client {
     pub async fn download(&self, version: impl IntoVersionIdent<'_>) -> Result<Bytes> {
         let res = self.download_raw(version).await?.bytes().await?;
         Ok(res)
+    }
+}
+
+impl Debug for Client {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Client")
+            .field("base_url", &self.base_url)
+            .field("client", &self.client)
+            .field(
+                "token",
+                if self.token.is_some() {
+                    &"Some(...)"
+                } else {
+                    &"None"
+                },
+            )
+            .finish()
     }
 }
 
