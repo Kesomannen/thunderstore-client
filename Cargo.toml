@@ -1,6 +1,6 @@
 [package]
 name = "thunderstore"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Kesomannen"]
 description = "A library for interacting with the Thunderstore API"
 license = "MIT OR Apache-2.0"
